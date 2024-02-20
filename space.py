@@ -1,0 +1,90 @@
+from loops import loop_nest
+import random
+import copy
+
+from aux import divisors
+from ast import Var,Add
+
+class Space:
+
+    prior: dict[loop_nest,int]
+
+    def __init__(self):
+        self.prior = {}
+
+    def min_tiling_of_untiled_dims(self,loop):
+        nloop = loop.clone()
+        for dim in nloop.spec_dims.keys():
+            if not nloop.is_tiled(dim):
+                nloop.tile_dimension(dim,1)
+        return nloop
+    
+    def randomly_tile_dimensions(self, loop, dims):
+
+        nloop = loop.clone()
+        
+        for d in dims:
+            tile_sizes = divisors(loop.spec_dims[d])
+            tile_sizes.remove(1)
+            tile_sizes.remove(loop.spec_dims[d])
+            n = random.choice(tile_sizes)
+            nloop.tile_dimension(d,n)
+
+        return nloop
+            
+    def randomly_tile_dimension(self, loop, dim):
+        return self.randomly_tile_dimensions(loop,[dim])
+    
+    def randomly_permutate_1(self, loop):
+        return self.randomly_permutate_n(loop, 1)
+        
+    def randomly_permutate_n(self, loop, n):
+        dims = list(loop.dims.keys())
+        res = [(a, b) for idx, a in enumerate(dims) for b in dims[idx + 1:]]
+        nloop = loop.clone()
+        for i in range(n):
+            d1,d2 = random.choice(res)
+            nloop.permutate_dimensions(d1,d2)
+        return nloop
+
+    def randomly_permutate(self,loop):
+        nloop = loop.clone()
+        nloop.perm = random.sample(nloop.perm,len(nloop.perm))
+        return nloop
+    
+    def mutate(self,loop):
+        d = random.choice(range(len(loop.spec_dims) + 1))
+
+        if d == len(loop.spec_dims):
+            nloop = self.randomly_permutate_1(loop)
+        else:
+            nloop = self.randomly_tile_dimension(loop,list(loop.spec_dims.keys())[d])
+
+        if loop.hamming_distance(nloop) > 0:
+            return nloop
+        else:
+            return self.mutate(loop)
+                                             
+    def random_implementation(self,loop):
+        #
+        to_tile = []
+        for k in loop.spec_dims.keys():
+            if random.choice([True,False]):
+                to_tile.append(k)
+        l2 = self.randomly_tile_dimensions(loop,to_tile)
+        #
+        l3 = self.randomly_permutate(l2)
+        #
+        return l3
+
+    def eval(self,loop):
+        if loop not in self.prior:
+            e = loop.evaluate()
+            self.prior[loop] = e
+        return self.prior[loop]
+
+    def difference_eval(self,loop1,loop2):
+        el1 = self.eval(loop1)
+        el2 = self.eval(loop2)
+        d = int(((el1 - el2)/el1)*10000)/100
+        return d
