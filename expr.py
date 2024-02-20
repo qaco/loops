@@ -40,6 +40,19 @@ class Var(AbsExpr):
     def __str__(self):
         return self.name
 
+class IntLiteral(AbsExpr):
+    lit: int
+    def __init__(self,lit):
+        self.lit = lit
+    def replace(self,eold,enew):
+        pass
+    def __eq__(self,other):
+        return isinstance(other,IntLiteral) and self.lit == other.lit
+    def __hash__(self):
+        return hash((self.__class__,self.lit))
+    def __str__(self):
+        return str(self.lit)
+
 class Cell(AbsExpr):
     array: Var
     dims: list[AbsExpr]
@@ -119,3 +132,5 @@ class Mul(BinOp):
 class Affect(BinOp):
     def root(self):
         return "="
+
+    

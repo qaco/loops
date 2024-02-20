@@ -1,6 +1,6 @@
 from collections import OrderedDict
 from loops import loop_nest
-from ast import AbsExpr,Cell,Var,Expr,Affect,Add,Mul
+from expr import AbsExpr,Cell,Var,Expr,Affect,Add,Mul,IntLiteral
 
 class matmul:
 
@@ -23,10 +23,21 @@ class matmul:
         }
         
         cij = Cell(array=Var(self.C),dims=[Var("i"),Var("j")])
+        init = Expr(Affect(
+            left = cij,
+            right = IntLiteral(lit=0)
+        ))
         aik = Cell(array=Var(self.A),dims=[Var("i"),Var("k")])
         bkj = Cell(array=Var(self.B),dims=[Var("k"),Var("j")])
         e = Expr(Affect(
             left = cij,
             right = Add(left = cij, right = Mul(left = aik, right = bkj))
         ))
-        return loop_nest(dims=dims, kernel = e, shapes = shapes)
+
+        
+        return loop_nest(
+            dims=dims,
+            payload = {e: {'i','j','k'}},
+            # payload = {e: {'i','j','k'}, init: {'i','j'}},
+            shapes = shapes
+        )

@@ -1,9 +1,10 @@
 from loops import loop_nest
 import random
 import copy
+from pandas import DataFrame
 
 from aux import divisors
-from ast import Var,Add
+from expr import Var,Add
 
 class Space:
 
@@ -12,6 +13,26 @@ class Space:
     def __init__(self):
         self.prior = {}
 
+    def to_data_frame(self):
+
+        ktime = "time"
+        
+        data = {ktime:[]}
+        
+        for (l,t) in self.prior.items():
+            
+            for (k,v),p in zip(l.dims.items(),l.perm):
+                kp = k + "p"
+                if k not in data:
+                    data[k] = []
+                    data[kp] = []
+                data[k] = data[k] + [v]
+                data[kp] = data[kp] + [p]
+
+            data[ktime] = data[ktime] + [t]
+
+        return DataFrame(data)
+        
     def min_tiling_of_untiled_dims(self,loop):
         nloop = loop.clone()
         for dim in nloop.spec_dims.keys():

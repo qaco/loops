@@ -5,7 +5,7 @@ import subprocess
 import os
 
 from collections import OrderedDict
-from ast import AbsExpr,Var,Add
+from expr import AbsExpr,Var,Add
 from aux import divisors, gen_timing_function
 
 tim_func = "counter_read_time"
@@ -21,7 +21,7 @@ class loop_nest:
     map_dims: OrderedDict[str,list[str]]
     perm: list[int]
 
-    kernel: AbsExpr
+    payload: dict[AbsExpr,set[str]]
     
     count = 0
 
@@ -29,37 +29,54 @@ class loop_nest:
             self,
             dims,
             shapes,
-            kernel,
+            payload,
             spec_dims=None,
             map_dims=None,
             perm=None
     ):
+        
         self.dims = dims
+        
         self.spec_dims = self.dims if spec_dims == None else spec_dims
+        
         self.shapes = shapes
-        self.kernel = kernel
+
+        self.payload = payload
+        for ds in payload.values():
+            assert(ds.issubset(set(self.dims.keys())))
+            # if not (ds.issubset(set(self.dims.keys()))):
+            #     print(ds)
+            #     print(set(self.dims.values()))
+            #     assert(False)
+        
         if map_dims == None:
             self.map_dims = OrderedDict()
             for d in dims.keys():
                 self.map_dims[d] = [d]
         else:
             self.map_dims = map_dims
+            
         self.perm = list(range(len(self.dims))) if perm == None else perm
+        
         self.name = "loop" + str(loop_nest.count)
+        
         loop_nest.count += 1
 
     def __eq__(self,other):
-        return (self.kernel == other.kernel
+        return (self.payload == other.payload
                 and list(self.dims.values()) == list(other.dims.values()))
 
     def __hash__(self):
-        return hash((tuple(self.dims.values()),self.kernel))
+        return hash((
+            tuple(self.dims.values()),
+            frozenset(self.payload)
+        ))
         
     def clone(self):
         return loop_nest(
             dims = copy.copy(self.dims),
             shapes = copy.copy(self.shapes),
-            kernel = copy.deepcopy(self.kernel),
+            payload = copy.deepcopy(self.payload),
             spec_dims = copy.copy(self.spec_dims),
             map_dims = copy.copy(self.map_dims),
             perm = copy.copy(self.perm)
@@ -89,12 +106,19 @@ class loop_nest:
             self.dims = mid1
             # Add a new dimension to the permutations buffer
             self.perm.append(max(self.perm) + 1)
-            # Update the kernel
+            # Update the code
             self.map_dims[dim] = [nindex0,nindex1]
             eold = Var(name=dim)
             enew = Add(left=Var(nindex0),right=Var(nindex1))
-            self.kernel.replace(eold,enew)
-
+            npayload = {}
+            for code,dims in self.payload.items():
+                code.replace(eold,enew)
+                if dim in dims:
+                    dims.remove(dim)
+                    dims.add(nindex0)
+                    dims.add(nindex1)
+                npayload[code] = dims
+            self.payload = npayload
         else:
             self.dims[nindex0] = int(dim_size // tile_size)
             self.dims[nindex1] = int(tile_size)
@@ -121,22 +145,35 @@ class loop_nest:
 
         return dist
     
-    def to_c_loop(self,init_ident=0,ident_step=2):
+    def to_c_loop(self,init_ident=0,ident_step=2,braces=True):
         c = ""
         ident = init_ident*ident_step
+        p_dims = set([])
+        p_code = set([])
         for d in self.perm:
             k = list(self.dims.keys())[d]
             v = self.dims[k]
             c += ident*" " + f"for (int {k} = 0; {k} < {v}; {k}++)"
-            c += " {\n"
+            c += " {\n" if braces else "\n"
             ident += ident_step
-        c += ident*" " + str(self.kernel) + ";\n"
-        while (ident - ident_step) > init_ident:
+            p_dims.add(k)
+            for code,dims in self.payload.items():
+                if dims.issubset(p_dims) and code not in p_code:
+                    c += ident*" " + str(code) + ";\n"
+                    p_code.add(code)
+        while braces and (ident - ident_step) > init_ident:
             c += (ident - ident_step)*" " + "}\n"
             ident -= ident_step
         return c
 
-    def to_c_function(self,name,ident_step=2,gen_main=False,instrument=True):
+    def to_c_function(
+            self,
+            name,
+            ident_step=2,
+            braces=True,
+            gen_main=False,
+            instrument=True
+    ):
         
         instrument = gen_main and instrument
         c = "#include <stdint.h>\n#include <stdio.h>\n"
@@ -159,7 +196,7 @@ class loop_nest:
                 c += ","
             c += "\n"
         c += ")\n{\n"
-        c += self.to_c_loop(init_ident=1,ident_step=ident_step)
+        c += self.to_c_loop(init_ident=1,ident_step=ident_step,braces=braces)
         c += "}\n"
 
         # Generate the main function
@@ -220,6 +257,13 @@ class loop_nest:
         s += 'dims -> ' + str(self.dims) + "\n"
         s += 'map_dims -> ' + str(self.map_dims) + "\n"
         s += 'perm -> ' + str(self.perm) + "\n"
-        s += 'kernel -> ' + str(self.kernel) + "\n"
+
+        s += 'payload -> {\n'
+        for (k,v) in self.payload.items():
+            s+= str(k) + ": " + str(v) + ",\n"
+        s += "}\n"
+
+        s += 'code ->\n' + self.to_c_loop(ident_step=0,braces=False)
+
         return s
 

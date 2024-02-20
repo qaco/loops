@@ -1,3 +1,4 @@
+import sys
 from space import Space
 from linalg import matmul
 
@@ -6,6 +7,8 @@ m = matmul(A="A",B="B",C="C",i=512,j=512,k=512)
 
 ml = m.loop_nest()
 mlt = s.min_tiling_of_untiled_dims(ml)
+
+# sys.exit(0)
 # rml = s.random_implementation(mlt)
 # rml1 = s.mutate(rml)
 # rml2 = s.mutate(rml1)
