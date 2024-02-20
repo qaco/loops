@@ -49,10 +49,11 @@ class loop_nest:
         loop_nest.count += 1
 
     def __eq__(self,other):
-        return self.dims == other.dims
+        return (self.kernel == other.kernel
+                and list(self.dims.values()) == list(other.dims.values()))
 
     def __hash__(self):
-        return hash(frozenset(self.dims))
+        return hash((tuple(self.dims.values()),self.kernel))
         
     def clone(self):
         return loop_nest(

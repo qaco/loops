@@ -22,6 +22,8 @@ class Expr(AbsExpr):
             self.expr.replace(eold,enew)
     def __eq__(self,other):
         return isinstance(other,Expr) and self.expr == other.expr
+    def __hash__(self):
+        return hash((self.__class__,self.expr))
     def __str__(self):
         return str(self.expr)
 
@@ -33,6 +35,8 @@ class Var(AbsExpr):
         pass
     def __eq__(self,other):
         return isinstance(other,Var) and self.name == other.name
+    def __hash__(self):
+        return hash((self.__class__,self.name))
     def __str__(self):
         return self.name
 
@@ -63,7 +67,10 @@ class Cell(AbsExpr):
                 return False
 
         return True
-        
+
+    def __hash__(self):
+        return hash((self.__class__,self.array) + tuple(self.dims))
+    
     def __str__(self):
         s = str(self.array)
         for d in self.dims:
@@ -95,6 +102,8 @@ class BinOp(AbsExpr,ABC):
             and self.left == other.left
             and self.right == other.right
         )
+    def __hash__(self):
+        return hash((self.__class__,self.left,self.right))
     def __str__(self):
         o = self.root()
         return str(self.left) + f" {o} " + str(self.right)
