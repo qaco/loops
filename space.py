@@ -39,7 +39,57 @@ class Space:
             if not nloop.is_tiled(dim):
                 nloop.tile_dimension(dim,1)
         return nloop
-    
+
+    def randomly_permutate(self,loop):
+
+        nloop = loop.clone()
+        
+        offsets = []
+        for code,dims in nloop.payload.items():
+            dmax = max(dims,key=lambda n:nloop.dims.keys().index(n))
+            if not dmax in offsets:
+                offsets.add(dmax)
+        offsets.sort()
+
+        slices = [[]]
+        acc = 0
+        for o in offsets:
+               perm_slice = nloop.perm[acc:o]
+               acc = o
+               slices.add(perm_slice)
+
+        nperm = []
+        for i in range(len(slices)):
+            nperm += random.sample(slices[i])
+
+        nloop.perm = nperm
+        return nloop
+
+    def randomly_permutate_n(self,loop,n):
+
+        nloop = loop.clone()
+        
+        offsets = []
+        for code,dims in nloop.payload.items():
+            dmax = max(dims,key=lambda n:nloop.dims.keys().index(n))
+            if not dmax in offsets:
+                offsets.add(dmax)
+        offsets.sort()
+
+        slices = [[]]
+        acc = 0
+        for o in offsets:
+               perm_slice = nloop.perm[acc:o]
+               acc = o
+               slices.add(perm_slice)
+
+        nperm = []
+        for i in range(len(slices)):
+            nperm += random.sample(slices[i])
+
+        nloop.perm = nperm
+        return nloop
+            
     def randomly_tile_dimensions(self, loop, dims):
 
         nloop = loop.clone()
