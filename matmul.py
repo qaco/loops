@@ -5,7 +5,7 @@ from linalg import matmul
 s = Space()
 m = matmul(A="A",B="B",C="C",i=512,j=512,k=512)
 
-ml = m.loop_nest()
+ml = m.loop_nest(initialize_C=True)
 mlt = s.min_tiling_of_untiled_dims(ml)
 
 # sys.exit(0)

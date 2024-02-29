@@ -12,7 +12,7 @@ class matmul:
         self.j = j
         self.k = k
 
-    def loop_nest(self):
+    def loop_nest(self,initialize_C):
         
         dims = OrderedDict(i=self.i,j=self.j,k=self.k)
 
@@ -34,10 +34,14 @@ class matmul:
             right = Add(left = cij, right = Mul(left = aik, right = bkj))
         ))
 
+        payload = {
+                e: {'i','j','k'},
+        }
+        if initialize_C:
+            payload[init] = {'i','j'}
         
         return loop_nest(
             dims=dims,
-            payload = {e: {'i','j','k'}},
-            # payload = {e: {'i','j','k'}, init: {'i','j'}},
+            payload=payload,
             shapes = shapes
         )
