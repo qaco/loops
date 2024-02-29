@@ -87,6 +87,8 @@ class loop_nest:
     
     def tile_dimension(self,dim,tile_size):
 
+        assert(len(self.dims) == len(self.perm))
+
         dim_size = self.spec_dims[dim]
         nindex0,nindex1 = dim+"0",dim+"1"
         
@@ -123,9 +125,10 @@ class loop_nest:
             self.dims[nindex0] = int(dim_size // tile_size)
             self.dims[nindex1] = int(tile_size)
 
-    def permutate_dimensions(self,i1,i2):
-        a = list(self.dims.keys()).index(i1)
-        b = list(self.dims.keys()).index(i2)
+    def permutate_dimensions(self,a,b):
+        assert(len(self.dims) == len(self.perm))
+        # a = list(self.dims.keys()).index(i1)
+        # b = list(self.dims.keys()).index(i2)
         self.perm[a], self.perm[b] = self.perm[b], self.perm[a]
         
     def hamming_distance(self,other):
@@ -146,6 +149,7 @@ class loop_nest:
         return dist
     
     def to_c_loop(self,init_ident=0,ident_step=2,braces=True):
+        assert(len(self.dims) == len(self.perm))
         c = ""
         ident = init_ident*ident_step
         p_dims = set([])
@@ -253,15 +257,15 @@ class loop_nest:
     
     def __str__(self):
         s =  f"loop_nest {self.name}\n"
-        s += 'spec_dims -> ' + str(self.spec_dims) + "\n"
+        # s += 'spec_dims -> ' + str(self.spec_dims) + "\n"
         s += 'dims -> ' + str(self.dims) + "\n"
-        s += 'map_dims -> ' + str(self.map_dims) + "\n"
+        # s += 'map_dims -> ' + str(self.map_dims) + "\n"
         s += 'perm -> ' + str(self.perm) + "\n"
 
-        s += 'payload -> {\n'
-        for (k,v) in self.payload.items():
-            s+= str(k) + ": " + str(v) + ",\n"
-        s += "}\n"
+        # s += 'payload -> {\n'
+        # for (k,v) in self.payload.items():
+        #     s+= str(k) + ": " + str(v) + ",\n"
+        # s += "}\n"
 
         s += 'code ->\n' + self.to_c_loop(ident_step=0,braces=False)
 

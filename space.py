@@ -34,62 +34,73 @@ class Space:
         return DataFrame(data)
         
     def min_tiling_of_untiled_dims(self,loop):
+        assert(len(loop.dims) == len(loop.perm))
         nloop = loop.clone()
         for dim in nloop.spec_dims.keys():
             if not nloop.is_tiled(dim):
                 nloop.tile_dimension(dim,1)
+        assert(len(nloop.dims) == len(nloop.perm))
         return nloop
 
-    def randomly_permutate(self,loop):
-
-        nloop = loop.clone()
+    def slice_permutations(self,loop):
+        # TODO
         
         offsets = []
-        for code,dims in nloop.payload.items():
-            dmax = max(dims,key=lambda n:nloop.dims.keys().index(n))
+        for code,dims in loop.payload.items():
+            # The closest parent of the payload (innermost dimension)
+            dmax = max(map(
+                lambda n:list(loop.dims.keys()).index(n) + 1,
+                dims
+            ))
             if not dmax in offsets:
-                offsets.add(dmax)
+                offsets.append(dmax)
         offsets.sort()
 
-        slices = [[]]
+        # Break the permutations into len(offsets) parts
+        slices = []
         acc = 0
         for o in offsets:
-               perm_slice = nloop.perm[acc:o]
+               perm_slice = loop.perm[acc:o]
                acc = o
-               slices.add(perm_slice)
+               slices.append(perm_slice)
+        
+        return slices
+               
+    def randomly_permutate(self,loop):
 
+        assert(len(loop.dims) == len(loop.perm))
+        
+        slices = self.slice_permutations(loop)
+        # Randomly permutate each slice
         nperm = []
-        for i in range(len(slices)):
-            nperm += random.sample(slices[i])
+        for s in slices:
+            random.shuffle(s)
+            nperm += s
 
+        nloop = loop.clone()
         nloop.perm = nperm
+        assert(len(nloop.dims) == len(nloop.perm))
         return nloop
 
     def randomly_permutate_n(self,loop,n):
 
         nloop = loop.clone()
-        
-        offsets = []
-        for code,dims in nloop.payload.items():
-            dmax = max(dims,key=lambda n:nloop.dims.keys().index(n))
-            if not dmax in offsets:
-                offsets.add(dmax)
-        offsets.sort()
+        slices = self.slice_permutations(loop)
 
-        slices = [[]]
-        acc = 0
-        for o in offsets:
-               perm_slice = nloop.perm[acc:o]
-               acc = o
-               slices.add(perm_slice)
+        pairs = []
+        for s in slices:
+            p = [(a, b) for idx, a in enumerate(s) for b in s[idx + 1:]]
+            pairs.append(p)
 
-        nperm = []
-        for i in range(len(slices)):
-            nperm += random.sample(slices[i])
+        for i in range(n):
+            s = slices[i]
+            ps = pairs[i]
+            p = random.choice(ps)
+            nloop.permutate_dimensions(p[0],p[1])
 
-        nloop.perm = nperm
+        assert(len(nloop.dims) == len(nloop.perm))
         return nloop
-            
+    
     def randomly_tile_dimensions(self, loop, dims):
 
         nloop = loop.clone()
@@ -109,20 +120,6 @@ class Space:
     def randomly_permutate_1(self, loop):
         return self.randomly_permutate_n(loop, 1)
         
-    def randomly_permutate_n(self, loop, n):
-        dims = list(loop.dims.keys())
-        res = [(a, b) for idx, a in enumerate(dims) for b in dims[idx + 1:]]
-        nloop = loop.clone()
-        for i in range(n):
-            d1,d2 = random.choice(res)
-            nloop.permutate_dimensions(d1,d2)
-        return nloop
-
-    def randomly_permutate(self,loop):
-        nloop = loop.clone()
-        nloop.perm = random.sample(nloop.perm,len(nloop.perm))
-        return nloop
-    
     def mutate(self,loop):
         d = random.choice(range(len(loop.spec_dims) + 1))
 
