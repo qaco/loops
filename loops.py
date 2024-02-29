@@ -6,7 +6,8 @@ import os
 
 from collections import OrderedDict
 from expr import AbsExpr,Var,Add
-from aux import divisors, gen_timing_function, tim_ty, tim_func
+from aux import divisors
+from printer import gen_timing_function, tim_ty, tim_func
 
 class loop_nest:
     
