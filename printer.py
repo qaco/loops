@@ -2,10 +2,11 @@ import math
 
 tim_func = "counter_read_time"
 tim_ty = "uint64_t"
+incl_tim_ty = "#include <stdint.h>\n"
 
 def gen_timing_function(ident_step):
     c = ""
-    c += "#include <stdint.h>\n"
+    c += incl_tim_ty
     c += "\n"
     c += f"static inline {tim_ty} {tim_func}(void)" + "\n"
     c += "{\n"

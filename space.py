@@ -1,10 +1,18 @@
 from loops import loop_nest
 import random
 import copy
+import math
 from pandas import DataFrame
 
-from aux import divisors
 from expr import Var,Add
+
+def divisors(n):
+    divs = [1]
+    for i in range(2,int(math.sqrt(n))+1):
+        if n%i == 0:
+            divs.extend([i,n/i])
+    divs.extend([n])
+    return list(set(divs))
 
 class Space:
 
@@ -92,14 +100,14 @@ class Space:
 
         pairs = []
         for s in slices:
-            p = [(a, b) for idx, a in enumerate(s) for b in s[idx + 1:]]
+            p = [(a, b) for idx,a in enumerate(s) for b in s[idx + 1:]]
             pairs.append(p)
 
         for i in range(n):
             s = slices[i]
             ps = pairs[i]
             p = random.choice(ps)
-            nloop.permutate_dimensions(p[0],p[1])
+            nloop.permutate_index_dimensions(p[0],p[1])
 
         nloop.check_consistency()
         return nloop

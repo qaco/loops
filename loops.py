@@ -6,8 +6,7 @@ import os
 
 from collections import OrderedDict
 from expr import AbsExpr,Var,Add
-from aux import divisors
-from printer import gen_timing_function, tim_ty, tim_func
+from printer import gen_timing_function, tim_ty, tim_func, incl_tim_ty
 
 class loop_nest:
     
@@ -129,11 +128,14 @@ class loop_nest:
 
         self.check_consistency()
 
-    def permutate_dimensions(self,a,b):
+    def permutate_dimensions(self,i1,i2):
+        a = list(self.dims.keys()).index(i1)
+        b = list(self.dims.keys()).index(i2)
+        self.permutate_index_dimensions(a,b)
+        
+    def permutate_index_dimensions(self,a,b):
         self.check_consistency()
 
-        # a = list(self.dims.keys()).index(i1)
-        # b = list(self.dims.keys()).index(i2)
         self.perm[a], self.perm[b] = self.perm[b], self.perm[a]
 
         self.check_consistency()
@@ -187,8 +189,8 @@ class loop_nest:
     ):
         
         instrument = gen_main and instrument
-        c = "#include <stdint.h>\n#include <stdio.h>\n"
-        c = gen_timing_function(ident_step) if instrument else c
+        c = incl_tim_ty + "#include <stdio.h>\n"
+        c += gen_timing_function(ident_step) if instrument else c
 
         # Generate the function embedding the loop
 
