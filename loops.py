@@ -62,6 +62,9 @@ class loop_nest:
         
         loop_nest.count += 1
 
+    def check_consistency(self):
+        assert(len(self.dims) == len(self.perm))
+        
     def __eq__(self,other):
         return (self.payload == other.payload
                 and list(self.dims.values()) == list(other.dims.values()))

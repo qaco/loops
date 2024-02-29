@@ -34,16 +34,18 @@ class Space:
         return DataFrame(data)
         
     def min_tiling_of_untiled_dims(self,loop):
-        assert(len(loop.dims) == len(loop.perm))
+
+        loop.check_consistency()
+
         nloop = loop.clone()
         for dim in nloop.spec_dims.keys():
             if not nloop.is_tiled(dim):
                 nloop.tile_dimension(dim,1)
-        assert(len(nloop.dims) == len(nloop.perm))
+
+        nloop.check_consistency()
         return nloop
 
     def slice_permutations(self,loop):
-        # TODO
         
         offsets = []
         for code,dims in loop.payload.items():
@@ -68,7 +70,7 @@ class Space:
                
     def randomly_permutate(self,loop):
 
-        assert(len(loop.dims) == len(loop.perm))
+        loop.check_consistency()
         
         slices = self.slice_permutations(loop)
         # Randomly permutate each slice
@@ -79,7 +81,8 @@ class Space:
 
         nloop = loop.clone()
         nloop.perm = nperm
-        assert(len(nloop.dims) == len(nloop.perm))
+        
+        nloop.check_consistency()
         return nloop
 
     def randomly_permutate_n(self,loop,n):
@@ -98,7 +101,7 @@ class Space:
             p = random.choice(ps)
             nloop.permutate_dimensions(p[0],p[1])
 
-        assert(len(nloop.dims) == len(nloop.perm))
+        nloop.check_consistency()
         return nloop
     
     def randomly_tile_dimensions(self, loop, dims):
