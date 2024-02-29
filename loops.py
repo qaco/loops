@@ -44,10 +44,6 @@ class loop_nest:
         self.payload = payload
         for ds in payload.values():
             assert(ds.issubset(set(self.dims.keys())))
-            # if not (ds.issubset(set(self.dims.keys()))):
-            #     print(ds)
-            #     print(set(self.dims.values()))
-            #     assert(False)
         
         if map_dims == None:
             self.map_dims = OrderedDict()
@@ -90,13 +86,18 @@ class loop_nest:
     
     def tile_dimension(self,dim,tile_size):
 
-        assert(len(self.dims) == len(self.perm))
-
         dim_size = self.spec_dims[dim]
         nindex0,nindex1 = dim+"0",dim+"1"
         
+        self.check_consistency()
         assert(dim in self.spec_dims)
-        assert(dim_size % tile_size == 0 and tile_size > 0 and tile_size <= dim_size)
+        
+        assert(
+            dim_size % tile_size == 0
+            and tile_size > 0
+            and tile_size <= dim_size
+        )
+        
         
         if nindex0 not in self.dims and nindex1 not in self.dims:
             assert(dim in self.dims)
@@ -128,11 +129,16 @@ class loop_nest:
             self.dims[nindex0] = int(dim_size // tile_size)
             self.dims[nindex1] = int(tile_size)
 
+        self.check_consistency()
+
     def permutate_dimensions(self,a,b):
-        assert(len(self.dims) == len(self.perm))
+        self.check_consistency()
+
         # a = list(self.dims.keys()).index(i1)
         # b = list(self.dims.keys()).index(i2)
         self.perm[a], self.perm[b] = self.perm[b], self.perm[a]
+
+        self.check_consistency()
         
     def hamming_distance(self,other):
         
