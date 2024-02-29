@@ -6,10 +6,7 @@ import os
 
 from collections import OrderedDict
 from expr import AbsExpr,Var,Add
-from aux import divisors, gen_timing_function
-
-tim_func = "counter_read_time"
-tim_ty = "uint64_t"
+from aux import divisors, gen_timing_function, tim_ty, tim_func
 
 class loop_nest:
     
@@ -190,7 +187,7 @@ class loop_nest:
         
         instrument = gen_main and instrument
         c = "#include <stdint.h>\n#include <stdio.h>\n"
-        c = gen_timing_function(tim_func,tim_ty,ident_step) if instrument else c
+        c = gen_timing_function(ident_step) if instrument else c
 
         # Generate the function embedding the loop
 
