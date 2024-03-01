@@ -6,7 +6,6 @@ import os
 
 from collections import OrderedDict
 from expr import AbsExpr,Var,Add
-from printer import gen_timing_function, tim_ty, tim_func, incl_tim_ty
 
 class loop_nest:
     
@@ -158,7 +157,7 @@ class loop_nest:
         return dist
     
     def to_c_loop(self,init_ident=0,ident_step=2,braces=True):
-        assert(len(self.dims) == len(self.perm))
+        self.check_consistency()
         c = ""
         ident = init_ident*ident_step
         p_dims = set([])
@@ -179,91 +178,6 @@ class loop_nest:
             ident -= ident_step
         return c
 
-    def to_c_function(
-            self,
-            name,
-            ident_step=2,
-            braces=True,
-            gen_main=False,
-            instrument=True
-    ):
-        
-        instrument = gen_main and instrument
-        c = incl_tim_ty + "#include <stdio.h>\n"
-        c += gen_timing_function(ident_step) if instrument else c
-
-        # Generate the function embedding the loop
-
-        data_list = {}
-        for n,s in self.shapes.items():
-            p = ident_step*" " + f"float {n}"
-            for ds in s:
-                p += f"[{ds}]"
-            data_list[n] = p
-
-        c += "\n"
-        c += f"void {name}(\n"
-        for i,d in enumerate(data_list.values()):
-            c += d
-            if i < len(data_list) - 1:
-                c += ","
-            c += "\n"
-        c += ")\n{\n"
-        c += self.to_c_loop(init_ident=1,ident_step=ident_step,braces=braces)
-        c += "}\n"
-
-        # Generate the main function
-        
-        if not gen_main:
-            return c
-        
-        c += "\n"
-        c += "int main() {\n"
-        for d in data_list.values():
-            c += d + ";\n"
-        c += ident_step*" " + f"{tim_ty} startt = {tim_func}();" + "\n"
-        c += ident_step*" " + f"{name}("
-        for i,n in enumerate(data_list.keys()):
-            c += n
-            if i < len(data_list) - 1:
-                c += ","
-        c += ");\n"
-        c += ident_step*" " + f"{tim_ty} endt = {tim_func}();" + "\n"
-        c += ident_step*" " + f"{tim_ty} duration = endt - startt;" + "\n"
-        c += ident_step*" " + "printf(\"%llu\\n\", duration);\n"
-        c += "}\n"
-            
-        return c
-
-    def evaluate(self):
-        #
-        f = open(f"/tmp/{self.name}.c","w")
-        f.write(self.to_c_function(name=self.name,gen_main=True))
-        f.close()
-        #
-        c_path = f"/tmp/{self.name}.c"
-        bin_path = f"/tmp/{self.name}"
-        comp_result = subprocess.run(
-            ["gcc", "-O3", c_path, "-o", bin_path],
-            capture_output=True,
-            text=True
-        )
-        if comp_result.returncode != 0:
-            print(f"{c_path} compilation error during evaluation.")
-            return None
-
-        exe_result = subprocess.run(
-            [bin_path],
-            capture_output=True,
-            text=True
-        )
-
-        os.remove(c_path)
-        os.remove(bin_path)
-
-        ncycles = int(exe_result.stdout)
-        return ncycles
-    
     def __str__(self):
         s =  f"loop_nest {self.name}\n"
         # s += 'spec_dims -> ' + str(self.spec_dims) + "\n"
