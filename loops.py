@@ -180,17 +180,24 @@ class loop_nest:
 
     def __str__(self):
         s =  f"loop_nest {self.name}\n"
+        s += "dims -> {"
+        ldims = list(self.dims.items())
+        for p in self.perm:
+            k,v = ldims[p]
+            s += f" {k}: {v},"
+        s += " }"
+        # s += "\n"
         # s += 'spec_dims -> ' + str(self.spec_dims) + "\n"
-        s += 'dims -> ' + str(self.dims) + "\n"
+        # s += 'dims -> ' + str(self.dims) + "\n"
         # s += 'map_dims -> ' + str(self.map_dims) + "\n"
-        s += 'perm -> ' + str(self.perm) + "\n"
+        # s += 'perm -> ' + str(self.perm) + "\n"
 
         # s += 'payload -> {\n'
         # for (k,v) in self.payload.items():
         #     s+= str(k) + ": " + str(v) + ",\n"
         # s += "}\n"
 
-        s += 'code ->\n' + self.to_c_loop(ident_step=0,braces=False)
+        # s += 'code ->\n' + self.to_c_loop(ident_step=0,braces=False)
 
         return s
 

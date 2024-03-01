@@ -1,10 +1,41 @@
 import math
 import subprocess
 import os
+import re
+from capstone import *
+
+md = Cs(CS_ARCH_X86, CS_MODE_64)
 
 tim_func = "counter_read_time"
 tim_ty = "uint64_t"
+tim_key = "time"
 incl_tim_ty = "#include <stdint.h>\n"
+
+class Exp:
+    num_cycles: int
+    cache_misses: int
+    vect_sse: bool
+    vect_avx2: bool
+    vect_avx512: bool
+
+    def __init__(
+            self,
+            num_cycles,
+            cache_references = 0,
+            cache_misses = 0,
+            vect_sse = False,
+            vect_avx2 = False,
+            vect_avx512 = False
+    ):
+        self.num_cycles = num_cycles
+        self.cache_references = cache_references
+        self.cache_misses = cache_misses
+        self.vect_sse = vect_sse
+        self.vect_avx2 = vect_avx2
+        self.vect_avx512 = vect_avx512
+
+    def cache_misses_percent(self):
+        return int((self.cache_misses/self.cache_references)*10000)/100
 
 def gen_timing_function(ident_step):
     c = ""
@@ -72,7 +103,7 @@ def to_c_function(
         c += ");\n"
         c += ident_step*" " + f"{tim_ty} endt = {tim_func}();" + "\n"
         c += ident_step*" " + f"{tim_ty} duration = endt - startt;" + "\n"
-        c += ident_step*" " + "printf(\"%llu\\n\", duration);\n"
+        c += ident_step*" " + "printf(\"" + tim_key + ": %llu\\n\", duration);\n"
         c += "}\n"
             
         return c
@@ -84,24 +115,64 @@ def evaluate(loop):
         f.close()
         #
         c_path = f"/tmp/{loop.name}.c"
+        asm_path = f"/tmp/{loop.name}.s"
         bin_path = f"/tmp/{loop.name}"
+        
         comp_result = subprocess.run(
-            ["gcc", "-O3", c_path, "-o", bin_path],
+            ["gcc", "-S", "-O3", c_path, "-o", asm_path],
             capture_output=True,
             text=True
         )
+
         if comp_result.returncode != 0:
             print(f"{c_path} compilation error during evaluation.")
             return None
 
+        comp_result = subprocess.run(
+            ["gcc", "-O3", asm_path, "-o", bin_path],
+            capture_output=True,
+            text=True
+        )
+        
+        run_cmd = [
+            "perf","stat", "-B", "-e",
+            "cache-references,cache-misses",
+            bin_path
+        ]
+        # Get number cycles
         exe_result = subprocess.run(
-            [bin_path],
+            run_cmd,
             capture_output=True,
             text=True
         )
 
+        norm_stdout = str(exe_result.stdout)
+        ncycles = int(re.search("time: ([0-9]+)", norm_stdout).group(1))
+        
+        norm_stderr = re.sub(' +', ' ', exe_result.stderr)
+        norm_stderr = re.sub(r'(\d)\s+(\d)', r'\1\2', norm_stderr)
+        crefs = int(re.search("([0-9]+) cache-references",
+                              norm_stderr).group(1),
+                    )
+        cmisses = int(re.search("([0-9]+) cache-misses",
+                                norm_stderr).group(1)
+                      )
+
+        with open(asm_path) as f:
+            asm_str = f.read()
+
+        sse,avx2,avx512 = "xmm" in asm_str,"ymm" in asm_str,"zmm" in asm_str
+
         os.remove(c_path)
         os.remove(bin_path)
-
-        ncycles = int(exe_result.stdout)
-        return ncycles
+        
+        assert(cmisses < crefs)
+        exp = Exp(
+            num_cycles=ncycles,
+            cache_references=crefs,
+            cache_misses = cmisses,
+            vect_sse=sse,
+            vect_avx2=avx2,
+            vect_avx512=avx512
+        )
+        return exp
