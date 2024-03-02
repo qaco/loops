@@ -23,23 +23,23 @@ def perform_measure(nl):
     flops = int(((512*512*512)/cy)*100)/100
     rel = int((flops/mlflops)*100)/100
 
-    # l = ""
-    # l += str(nl) + "\n"
-    # l += f"{flops} flops/cycle (x{rel} perf)\n"
-    # l += f"{cmisses_percent}% cache misses ({cmisses}/{crefs})\n"
+    l = ""
+    l += str(nl) + "\n"
+    l += f"{flops} flops/cycle (x{rel} perf)\n"
+    l += f"{cmisses_percent}% cache misses ({cmisses}/{crefs})\n"
     
-    # vect = ""
-    # if measure.vect_sse:
-    #     vect += " SSE"
-    # if measure.vect_avx2:
-    #     vect += " AVX2"
-    # if measure.vect_avx512:
-    #     vect += " AVX512"
-    # l += f"Vect:{vect}"
+    vect = ""
+    if measure.vect_sse:
+        vect += " SSE"
+    if measure.vect_avx2:
+        vect += " AVX2"
+    if measure.vect_avx512:
+        vect += " AVX512"
+    l += f"Vect:{vect}"
     
-    # l += "\n"
+    l += "\n"
 
-    # print(l)
+    print(l)
 
 mlt = b.min_tiling_of_untiled_dims(ml)
 

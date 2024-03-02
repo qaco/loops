@@ -161,7 +161,28 @@ def evaluate(loop):
         with open(asm_path) as f:
             asm_str = f.read()
 
-        sse,avx2,avx512 = "xmm" in asm_str,"ymm" in asm_str,"zmm" in asm_str
+        avx2,avx512 = "ymm" in asm_str,"zmm" in asm_str
+        
+        sse_vect_instr = [
+            'addps',
+            'subps',
+            'mulps',
+            'divps',
+            'rcpps',
+            'sqrtps',
+            'maxps',
+            'minps',
+            'rsqrtps'
+        ]
+        sse = False
+        for ins in sse_vect_instr:
+            if ins in asm_str:
+                sse = True
+                break
+        
+        # for l in asm_str.split('\n'):
+        #     if 'xmm' in l:
+        #         print(l)
 
         os.remove(c_path)
         os.remove(bin_path)
