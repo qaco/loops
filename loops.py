@@ -171,7 +171,7 @@ class loop_nest:
             p_dims.add(k)
             for code,dims in self.payload.items():
                 if dims.issubset(p_dims) and code not in p_code:
-                    c += ident*" " + str(code) + ";\n"
+                    c += ident*" " + code.to_c(vectorize=False) + ";\n"
                     p_code.add(code)
         while braces and (ident - ident_step) > init_ident:
             c += (ident - ident_step)*" " + "}\n"
@@ -186,18 +186,6 @@ class loop_nest:
             k,v = ldims[p]
             s += f" {k}: {v},"
         s += " }"
-        # s += "\n"
-        # s += 'spec_dims -> ' + str(self.spec_dims) + "\n"
-        # s += 'dims -> ' + str(self.dims) + "\n"
-        # s += 'map_dims -> ' + str(self.map_dims) + "\n"
-        # s += 'perm -> ' + str(self.perm) + "\n"
-
-        # s += 'payload -> {\n'
-        # for (k,v) in self.payload.items():
-        #     s+= str(k) + ": " + str(v) + ",\n"
-        # s += "}\n"
-
-        # s += 'code ->\n' + self.to_c_loop(ident_step=0,braces=False)
 
         return s
 

@@ -8,7 +8,7 @@ class AbsExpr(ABC):
     def __eq__(self,other):
         pass
     @abstractmethod
-    def __str__(self):
+    def to_c(self, vectorize):
         pass
 
 class Expr(AbsExpr):
@@ -24,20 +24,22 @@ class Expr(AbsExpr):
         return isinstance(other,Expr) and self.expr == other.expr
     def __hash__(self):
         return hash((self.__class__,self.expr))
-    def __str__(self):
-        return str(self.expr)
+    def to_c(self, vectorize):
+        return self.expr.to_c(vectorize=vectorize)
 
 class Var(AbsExpr):
     name: str
     def __init__(self,name):
         self.name = name
     def replace(self,eold,enew):
-        pass
+        if eold == self:
+            assert(isinstance(enew,Var))
+            self.name = enew.var
     def __eq__(self,other):
         return isinstance(other,Var) and self.name == other.name
     def __hash__(self):
         return hash((self.__class__,self.name))
-    def __str__(self):
+    def to_c(self, vectorize):
         return self.name
 
 class IntLiteral(AbsExpr):
@@ -50,7 +52,7 @@ class IntLiteral(AbsExpr):
         return isinstance(other,IntLiteral) and self.lit == other.lit
     def __hash__(self):
         return hash((self.__class__,self.lit))
-    def __str__(self):
+    def to_c(self, vectorize):
         return str(self.lit)
 
 class Cell(AbsExpr):
@@ -60,8 +62,7 @@ class Cell(AbsExpr):
         self.array = array
         self.dims = dims
     def replace(self,eold,enew):
-        if isinstance(eold,Var) and eold.name == self.array.name:
-            self.array = enew
+        self.array.replace(eold,enew)
         for i,d in enumerate(self.dims):
             if d == eold:
                 self.dims[i] = enew
@@ -84,10 +85,10 @@ class Cell(AbsExpr):
     def __hash__(self):
         return hash((self.__class__,self.array) + tuple(self.dims))
     
-    def __str__(self):
-        s = str(self.array)
+    def to_c(self, vectorize):
+        s = self.array.to_c(vectorize=vectorize)
         for d in self.dims:
-            e = str(d)
+            e = d.to_c(vectorize=vectorize)
             s += f"[{e}]"
         return s
 
@@ -117,9 +118,13 @@ class BinOp(AbsExpr,ABC):
         )
     def __hash__(self):
         return hash((self.__class__,self.left,self.right))
-    def __str__(self):
+    def to_c(self, vectorize):
         o = self.root()
-        return str(self.left) + f" {o} " + str(self.right)
+        return (
+            self.left.to_c(vectorize=vectorize)
+            + f" {o} "
+            + self.right.to_c(vectorize=vectorize)
+        )
 
 class Add(BinOp):
     def root(self):
@@ -133,4 +138,45 @@ class Affect(BinOp):
     def root(self):
         return "="
 
+class FMA(AbsExpr):
+    dest: AbsExpr
+    factor1: AbsExpr
+    factor2: AbsExpr
+    weight: AbsExpr
+
+    def __init__(
+            self,
+            dest,
+            factor1,
+            factor2,
+            weight,
+    ):
+        self.dest = dest
+        self.factor1 = factor1
+        self.factor2 = factor2
+        self.weight = weight
+    def replace(self,eold,enew):
+        for e in [self.dest,self.factor1,self.factor2,self.weight]:
+            e.replace(eold,enew)
+    def __eq__(self,other):
+        return(
+            isiinstance(other,FMA)
+            and self.dest == other.dest
+            and self.factor1 == other.factor1
+            and self.factor2 == other.factor2
+            and self.weight == other.weight
+        )
+    def __hash__(self):
+        return hash((
+            self.__class__,
+            self.dest,
+            self.factor1,
+            self.factor2,
+            self.weight
+        ))
+    def to_c(self,vectorize):
+        if vectorize:
+            assert(False)
+        assert(False)
+    
     
