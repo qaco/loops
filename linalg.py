@@ -1,6 +1,6 @@
 from collections import OrderedDict
 from loops import loop_nest
-from expr import AbsExpr,Cell,Var,Expr,Affect,Add,Mul,IntLiteral
+from expr import AbsExpr,Cell,Var,Expr,Affect,Add,Mul,IntLiteral,FMA,FZero
 
 class matmul:
 
@@ -23,16 +23,19 @@ class matmul:
         }
         
         cij = Cell(array=Var(self.C),dims=[Var("i"),Var("j")])
-        init = Expr(Affect(
-            left = cij,
-            right = IntLiteral(lit=0)
-        ))
         aik = Cell(array=Var(self.A),dims=[Var("i"),Var("k")])
         bkj = Cell(array=Var(self.B),dims=[Var("k"),Var("j")])
-        e = Expr(Affect(
-            left = cij,
-            right = Add(left = cij, right = Mul(left = aik, right = bkj))
-        ))
+        e = FMA(dest=cij,factor1=aik,factor2=bkj,weight=cij)
+        init = FZero(dest=cij)
+        # init = Expr(Affect(
+        #     left = cij,
+        #     right = IntLiteral(lit=0)
+        # ))
+        
+        # e = Expr(Affect(
+        #     left = cij,
+        #     right = Add(left = cij, right = Mul(left = aik, right = bkj))
+        # ))
 
         payload = {
                 e: {'i','j','k'},

@@ -6,7 +6,7 @@ from linalg import matmul
 flops_per_iteration = 2 # because SSE does not have FMA
 random_picks = 10
 mutations = 10
-initialize_C=False
+initialize_C=True
 
 b = LoopBuilder()
 s = Space()
@@ -21,7 +21,7 @@ def perform_measure(nl):
 
     cy = measure.num_cycles
 
-    if cy < mlcy:
+    if cy > mlcy:
         return
     
     cmisses = measure.cache_misses
@@ -32,7 +32,7 @@ def perform_measure(nl):
 
     l = ""
     l += str(nl) + "\n"
-    l += f"{flops} flops/cycle (x{rel} perf)\n"
+    l += f"{flops} flops/cycle (x{rel} perf against {mlflops})\n"
     l += f"{cmisses_percent}% cache misses ({cmisses}/{crefs})\n"
     
     vect = ""

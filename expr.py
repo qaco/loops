@@ -138,12 +138,37 @@ class Affect(BinOp):
     def root(self):
         return "="
 
+class FZero(AbsExpr):
+    dest: AbsExpr
+    def __init__(self,dest):
+        self.dest = dest
+    def replace(self,eold,enew):
+        self.dest.replace(eold,enew)
+    def __eq__(self,other):
+        return(
+            isinstance(other,FZero)
+            and self.dest == other.dest
+        )
+    def __hash__(self):
+        return hash((
+            self.__class__,
+            self.dest
+        ))
+    def to_c(self,vectorize):
+        if vectorize:
+            assert(False)
+        else:
+            init = Expr(Affect(
+                left = self.dest,
+                right = IntLiteral(lit=0)
+            ))
+            return init.to_c(vectorize=vectorize)
+    
 class FMA(AbsExpr):
     dest: AbsExpr
     factor1: AbsExpr
     factor2: AbsExpr
     weight: AbsExpr
-
     def __init__(
             self,
             dest,
@@ -160,7 +185,7 @@ class FMA(AbsExpr):
             e.replace(eold,enew)
     def __eq__(self,other):
         return(
-            isiinstance(other,FMA)
+            isinstance(other,FMA)
             and self.dest == other.dest
             and self.factor1 == other.factor1
             and self.factor2 == other.factor2
@@ -177,6 +202,13 @@ class FMA(AbsExpr):
     def to_c(self,vectorize):
         if vectorize:
             assert(False)
-        assert(False)
+        else:
+            mul = Mul(left=self.factor1,right=self.factor2)
+            add = Add(left=self.weight,right=mul)
+            e = Expr(Affect(
+                left = self.dest,
+                right = add
+            ))
+            return e.to_c(vectorize=vectorize)
     
     
