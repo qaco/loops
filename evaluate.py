@@ -82,7 +82,7 @@ def to_c_function(
                 c += ","
             c += "\n"
         c += ")\n{\n"
-        c += loop.to_c_loop(init_ident=1,ident_step=ident_step,braces=braces)
+        c += loop.to_c_loop(init_ident=1,ident_step=ident_step)
         c += "}\n"
 
         # Generate the main function
@@ -180,11 +180,8 @@ def evaluate(loop):
                 sse = True
                 break
         
-        # for l in asm_str.split('\n'):
-        #     if 'xmm' in l:
-        #         print(l)
-
         os.remove(c_path)
+        os.remove(asm_path)
         os.remove(bin_path)
         
         assert(cmisses < crefs)

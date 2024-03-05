@@ -17,7 +17,8 @@ class loop_nest:
     map_dims: OrderedDict[str,list[str]]
     perm: list[int]
 
-    payload: dict[AbsExpr,set[str]]
+    prefix_payload: dict[AbsExpr,set[str]]
+    suffix_payload: dict[AbsExpr,set[str]]
     
     count = 0
 
@@ -25,7 +26,8 @@ class loop_nest:
             self,
             dims,
             shapes,
-            payload,
+            prefix_payload,
+            suffix_payload,
             spec_dims=None,
             map_dims=None,
             perm=None
@@ -37,8 +39,11 @@ class loop_nest:
         
         self.shapes = shapes
 
-        self.payload = payload
-        for ds in payload.values():
+        self.prefix_payload = prefix_payload
+        for ds in prefix_payload.values():
+            assert(ds.issubset(set(self.dims.keys())))
+        self.suffix_payload = suffix_payload
+        for ds in suffix_payload.values():
             assert(ds.issubset(set(self.dims.keys())))
         
         if map_dims == None:
@@ -58,20 +63,23 @@ class loop_nest:
         assert(len(self.dims) == len(self.perm))
         
     def __eq__(self,other):
-        return (self.payload == other.payload
+        return (self.prefix_payload == other.prefix_payload
+                and self.suffix_payload == other.suffix_payload
                 and list(self.dims.values()) == list(other.dims.values()))
 
     def __hash__(self):
         return hash((
             tuple(self.dims.values()),
-            frozenset(self.payload)
+            frozenset(self.prefix_payload),
+            frozenset(self.suffix_payload)
         ))
         
     def clone(self):
         return loop_nest(
             dims = copy.copy(self.dims),
             shapes = copy.copy(self.shapes),
-            payload = copy.deepcopy(self.payload),
+            prefix_payload = copy.deepcopy(self.prefix_payload),
+            suffix_payload = copy.deepcopy(self.suffix_payload),
             spec_dims = copy.copy(self.spec_dims),
             map_dims = copy.copy(self.map_dims),
             perm = copy.copy(self.perm)
@@ -112,15 +120,26 @@ class loop_nest:
             self.map_dims[dim] = [nindex0,nindex1]
             eold = Var(name=dim)
             enew = Add(left=Var(nindex0),right=Var(nindex1))
-            npayload = {}
-            for code,dims in self.payload.items():
+            
+            nprefix_payload = {}
+            for code,dims in self.prefix_payload.items():
                 code.replace(eold,enew)
                 if dim in dims:
                     dims.remove(dim)
                     dims.add(nindex0)
                     dims.add(nindex1)
-                npayload[code] = dims
-            self.payload = npayload
+                nprefix_payload[code] = dims
+            self.prefix_payload = nprefix_payload
+
+            nsuffix_payload = {}
+            for code,dims in self.suffix_payload.items():
+                code.replace(eold,enew)
+                if dim in dims:
+                    dims.remove(dim)
+                    dims.add(nindex0)
+                    dims.add(nindex1)
+                nsuffix_payload[code] = dims
+            self.suffix_payload = nsuffix_payload
         else:
             self.dims[nindex0] = int(dim_size // tile_size)
             self.dims[nindex1] = int(tile_size)
@@ -155,28 +174,90 @@ class loop_nest:
                 dist += 1
 
         return dist
-    
-    def to_c_loop(self,init_ident=0,ident_step=2,braces=True):
-        self.check_consistency()
+
+    def to_c_loop_aux(
+            self,
+            perm_index,
+            k_dims,
+            ins,
+            ident,
+            ident_step,
+            vectorize
+    ):
         c = ""
-        ident = init_ident*ident_step
-        p_dims = set([])
-        p_code = set([])
-        for d in self.perm:
-            k = list(self.dims.keys())[d]
-            v = self.dims[k]
-            c += ident*" " + f"for (int {k} = 0; {k} < {v}; {k}++)"
-            c += " {\n" if braces else "\n"
-            ident += ident_step
-            p_dims.add(k)
-            for code,dims in self.payload.items():
-                if dims.issubset(p_dims) and code not in p_code:
-                    c += ident*" " + code.to_c(vectorize=False) + ";\n"
-                    p_code.add(code)
-        while braces and (ident - ident_step) > init_ident:
-            c += (ident - ident_step)*" " + "}\n"
-            ident -= ident_step
+        d = self.perm[perm_index]
+
+        k = list(self.dims.keys())[d]
+        v = self.dims[k]
+        c += ident*" " + f"for (int {k} = 0; {k} < {v}; {k}++)"
+        c += " {\n"
+
+        k_dims = copy.copy(k_dims)
+        k_dims.add(k)
+
+        for code,c_dims in self.prefix_payload.items():
+            if c_dims.issubset(k_dims) and not code in ins:
+                c += (ident+ident_step)*" " + code.to_c(vectorize=vectorize) + ";\n"
+                ins.add(code)
+
+        postfix = ""
+        for code,c_dims in self.suffix_payload.items():
+            if c_dims.issubset(k_dims) and not code in ins:
+                postfix += (ident+ident_step)*" " + code.to_c(vectorize=vectorize) + ";\n"
+                ins.add(code)
+                
+        if perm_index+1 < len(self.perm):
+            c += self.to_c_loop_aux(
+                perm_index=perm_index+1,
+                k_dims=k_dims,
+                ins=ins,
+                ident=ident+ident_step,
+                ident_step=ident_step,
+                vectorize=vectorize
+            )
+
+        c += postfix
+        c += ident*" " + "}\n"
         return c
+
+    def to_c_loop(
+            self,
+            init_ident=0,
+            ident_step=2,
+            vectorize=False
+    ):
+        l = self.to_c_loop_aux(
+            perm_index=0,
+            k_dims=set([]),
+            ins=set([]),
+            ident=init_ident*ident_step,
+            ident_step=ident_step,
+            vectorize=vectorize
+        )
+        return l
+    
+            
+    # def to_c_loop(self,init_ident=0,ident_step=2,braces=True):
+    #     self.check_consistency()
+    #     c = ""
+    #     ident = init_ident*ident_step
+    #     p_dims = set([])
+    #     p_code = set([])
+    #     for d in self.perm:
+    #         k = list(self.dims.keys())[d]
+    #         v = self.dims[k]
+    #         c += ident*" " + f"for (int {k} = 0; {k} < {v}; {k}++)"
+    #         c += " {\n" if braces else "\n"
+    #         ident += ident_step
+    #         p_dims.add(k)
+    #         for code,dims in self.payload.items():
+    #             if dims.issubset(p_dims) and code not in p_code:
+    #                 c += ident*" " + code.to_c(vectorize=False) + ";\n"
+    #                 p_code.add(code)
+    #     while braces and (ident - ident_step) > init_ident:
+    #         c += (ident - ident_step)*" " + "}\n"
+    #         ident -= ident_step
+    #     return c
 
     def __str__(self):
         s =  f"loop_nest {self.name}\n"

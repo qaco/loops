@@ -23,7 +23,7 @@ def perform_measure(nl):
 
     if cy > mlcy:
         return
-    
+
     cmisses = measure.cache_misses
     crefs = measure.cache_references
     cmisses_percent = measure.cache_misses_percent()

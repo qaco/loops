@@ -1,6 +1,6 @@
 from collections import OrderedDict
 from loops import loop_nest
-from expr import AbsExpr,Cell,Var,Expr,Affect,Add,Mul,IntLiteral,FMA,FZero
+from expr import AbsExpr,Cell,Var,Expr,Affect,Add,Mul,IntLiteral,FMA,FZero,InitFZero
 
 class matmul:
 
@@ -25,8 +25,10 @@ class matmul:
         cij = Cell(array=Var(self.C),dims=[Var("i"),Var("j")])
         aik = Cell(array=Var(self.A),dims=[Var("i"),Var("k")])
         bkj = Cell(array=Var(self.B),dims=[Var("k"),Var("j")])
-        e = FMA(dest=cij,factor1=aik,factor2=bkj,weight=cij)
-        init = FZero(dest=cij)
+        tmpvar = Var("sum")
+        init = InitFZero(dest=tmpvar)
+        e = FMA(dest=tmpvar,factor1=aik,factor2=bkj,weight=tmpvar)
+        load = Affect(left=cij,right=tmpvar)
         # init = Expr(Affect(
         #     left = cij,
         #     right = IntLiteral(lit=0)
@@ -37,14 +39,17 @@ class matmul:
         #     right = Add(left = cij, right = Mul(left = aik, right = bkj))
         # ))
 
-        payload = {
-                e: {'i','j','k'},
+        prefix_payload = {
+            e: {'i','j','k'},
+            init: {'i','j'}
         }
-        if initialize_C:
-            payload[init] = {'i','j'}
+        suffix_payload = {
+            load: {'i','j'}
+        }
         
         return loop_nest(
             dims=dims,
-            payload=payload,
+            prefix_payload=prefix_payload,
+            suffix_payload=suffix_payload,
             shapes = shapes
         )

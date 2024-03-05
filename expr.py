@@ -42,6 +42,18 @@ class Var(AbsExpr):
     def to_c(self, vectorize):
         return self.name
 
+class Decl(Var):
+    ty: str
+    def __init__(self,ty,name):
+        super().__init__(name=name)
+        self.ty = ty
+    def __eq__(self,other):
+        return super().__eq__(other) and self.ty == other.ty
+    def __hash__(self):
+        return hash((self.__class__,self.name,self.ty))
+    def to_c(self, vectorize):
+        return self.ty + " " + self.name
+
 class IntLiteral(AbsExpr):
     lit: int
     def __init__(self,lit):
@@ -163,7 +175,19 @@ class FZero(AbsExpr):
                 right = IntLiteral(lit=0)
             ))
             return init.to_c(vectorize=vectorize)
-    
+
+class InitFZero(FZero):
+    def to_c(self,vectorize):
+        if vectorize:
+            assert(False)
+        else:
+            assert(isinstance(self.dest,Var))
+            init = Expr(Affect(
+                left = Decl(ty="float",name=self.dest.name),
+                right = IntLiteral(lit=0)
+            ))
+            return init.to_c(vectorize=vectorize)
+        
 class FMA(AbsExpr):
     dest: AbsExpr
     factor1: AbsExpr

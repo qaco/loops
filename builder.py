@@ -28,7 +28,10 @@ class LoopBuilder:
     def slice_permutations(self,loop):
         
         offsets = []
-        for code,dims in loop.payload.items():
+        for code,dims in (
+                list(loop.prefix_payload.items())
+                # + list(loop.suffix_payload.items())
+        ):
             # The closest parent of the payload (innermost dimension)
             dmax = max(map(
                 lambda n:list(loop.dims.keys()).index(n) + 1,
@@ -45,7 +48,7 @@ class LoopBuilder:
                perm_slice = loop.perm[acc:o]
                acc = o
                slices.append(perm_slice)
-        
+
         return slices
                
     def randomly_permutate(self,loop):
@@ -59,6 +62,9 @@ class LoopBuilder:
             random.shuffle(s)
             nperm += s
 
+        assert(nperm.index(5) >= 4)
+        assert(nperm.index(4) >= 4)
+            
         nloop = loop.clone()
         nloop.perm = nperm
         
@@ -82,6 +88,8 @@ class LoopBuilder:
             nloop.permutate_index_dimensions(p[0],p[1])
 
         nloop.check_consistency()
+        assert(nloop.perm.index(5) >= 4)
+        assert(nloop.perm.index(4) >= 4)
         return nloop
     
     def randomly_tile_dimensions(self, loop, dims):
