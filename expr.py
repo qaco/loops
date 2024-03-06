@@ -176,7 +176,7 @@ class FZero(AbsExpr):
             ))
             return init.to_c(vectorize=vectorize)
 
-class InitFZero(FZero):
+class FZeroInit(FZero):
     def to_c(self,vectorize):
         if vectorize:
             assert(False)
