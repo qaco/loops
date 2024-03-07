@@ -167,7 +167,11 @@ class FZero(AbsExpr):
             self.dest
         ))
     def to_c(self,vectorize):
-        if vectorize:
+        if vectorize == 'sse':
+            assert(False)
+        elif vectorize == 'avx2':
+            assert(False)
+        elif vectorize == 'avx512':
             assert(False)
         else:
             init = Expr(Affect(

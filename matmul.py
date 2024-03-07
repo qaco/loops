@@ -10,7 +10,7 @@ initialize_C=True
 
 b = LoopBuilder()
 s = Space()
-ml = matmul(A="A",B="B",C="C",i=512,j=512,k=512)
+ml = matmul(A="A",B="B",C="C",i=512,j=512,k=512,vectorize='sse')
 mlcy = s.get_measure(ml).num_cycles
 mlflops = int(((512*512*512*flops_per_iteration)/mlcy)*100)/100
 

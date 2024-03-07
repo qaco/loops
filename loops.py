@@ -16,6 +16,8 @@ class loop_nest:
     dims: OrderedDict[str,int]
     map_dims: OrderedDict[str,list[str]]
     perm: list[int]
+    vectorized_sse: str
+    vectorizable_dims: list[str]
 
     prefix_payload: dict[AbsExpr,set[str]]
     suffix_payload: dict[AbsExpr,set[str]]
@@ -28,6 +30,7 @@ class loop_nest:
             shapes,
             prefix_payload,
             suffix_payload,
+            vectorizable_dims=[],
             spec_dims=None,
             map_dims=None,
             perm=None
@@ -36,6 +39,9 @@ class loop_nest:
         self.dims = dims
         
         self.spec_dims = self.dims if spec_dims == None else spec_dims
+
+        self.vectorizable_dims = vectorizable_dims
+        self.vectorized_sse = []
         
         self.shapes = shapes
 
@@ -87,6 +93,20 @@ class loop_nest:
 
     def is_tiled(self,dim):
         return len(self.map_dims[dim]) > 1
+
+    def vectorize_sse(self):
+        
+        if not self.vectorizable_dims:
+            return
+
+        dim,ind = None,None
+        for d in self.vectorizable_dims:
+            i = self.dims[d]
+            if i%4 == 0 and (ind == None or i < ind):
+                dim,ind=d,i
+
+        if dim:
+            self.vectorized_sse = dim
     
     def tile_dimension(self,dim,tile_size):
 
@@ -120,6 +140,10 @@ class loop_nest:
             self.map_dims[dim] = [nindex0,nindex1]
             eold = Var(name=dim)
             enew = Add(left=Var(nindex0),right=Var(nindex1))
+            # Update the vectorizable list
+            if dim in self.vectorizable_dims:
+                self.vectorizable_dims.remove(dim)
+                self.vectorizable_dims += [nindex0,nindex1]
             
             nprefix_payload = {}
             for code,dims in self.prefix_payload.items():
@@ -181,29 +205,33 @@ class loop_nest:
             k_dims,
             ins,
             ident,
-            ident_step,
-            vectorize
+            ident_step
     ):
         c = ""
         d = self.perm[perm_index]
 
         k = list(self.dims.keys())[d]
         v = self.dims[k]
-        c += ident*" " + f"for (int {k} = 0; {k} < {v}; {k}++)"
-        c += " {\n"
+        c += ident*" " + f"for (int {k} = 0; "
+        if self.vectorized_sse:
+            v1 = v//4
+            c += f"{k} < {v1}; {k} += 4"
+        else:
+            c += f"{k} < {v}; {k}++"
+        c += "){\n"
 
         k_dims = copy.copy(k_dims)
         k_dims.add(k)
 
         for code,c_dims in self.prefix_payload.items():
             if c_dims.issubset(k_dims) and not code in ins:
-                c += (ident+ident_step)*" " + code.to_c(vectorize=vectorize) + ";\n"
+                c += (ident+ident_step)*" " + code.to_c(vectorize=None) + ";\n"
                 ins.add(code)
 
         postfix = ""
         for code,c_dims in self.suffix_payload.items():
             if c_dims.issubset(k_dims) and not code in ins:
-                postfix += (ident+ident_step)*" " + code.to_c(vectorize=vectorize) + ";\n"
+                postfix += (ident+ident_step)*" " + code.to_c(vectorize=None) + ";\n"
                 ins.add(code)
                 
         if perm_index+1 < len(self.perm):
@@ -213,7 +241,6 @@ class loop_nest:
                 ins=ins,
                 ident=ident+ident_step,
                 ident_step=ident_step,
-                vectorize=vectorize
             )
 
         c += postfix
@@ -224,7 +251,6 @@ class loop_nest:
             self,
             init_ident=0,
             ident_step=2,
-            vectorize=False
     ):
         l = self.to_c_loop_aux(
             perm_index=0,
@@ -232,7 +258,6 @@ class loop_nest:
             ins=set([]),
             ident=init_ident*ident_step,
             ident_step=ident_step,
-            vectorize=vectorize
         )
         return l
     

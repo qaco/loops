@@ -82,7 +82,10 @@ def to_c_function(
                 c += ","
             c += "\n"
         c += ")\n{\n"
-        c += loop.to_c_loop(init_ident=1,ident_step=ident_step)
+        c += loop.to_c_loop(
+            init_ident=1,
+            ident_step=ident_step,
+        )
         c += "}\n"
 
         # Generate the main function

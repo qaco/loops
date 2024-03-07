@@ -5,16 +5,29 @@
 #define J 512
 #define K 512
 
+#define AFFECT_ZERO(dest) ({\
+      dest = _mm_setzero_ps();\
+    })
+
+#define FMA(dest,weight,factor1,factor2) ({\
+      __m128 a_row = _mm_loadu_ps(&factor1);\
+      __m128 b_col = _mm_loadu_ps(&factor2);\
+      dest = _mm_add_ps(weight, _mm_mul_ps(a_row, b_col));\
+    })
+
+#define AFFECT(dest,src) ({\
+      _mm_storeu_ps(&dest, src);\
+    })
+
 void matrix_multiply(float a[I][K], float b[K][J], float result[I][J]) {
   for (int i = 0; i < I; ++i) {
     for (int j = 0; j < J; ++j) {
-      __m128 result_row = _mm_setzero_ps();
+      __m128 result_row;
+      AFFECT_ZERO(result_row);
       for (int k = 0; k < K; k += 4) {
-        __m128 a_row = _mm_loadu_ps(&a[i][k]);
-        __m128 b_col = _mm_loadu_ps(&b[k][j]);
-        result_row = _mm_add_ps(result_row, _mm_mul_ps(a_row, b_col));
+        FMA(result_row,result_row,a[i][k],b[k][j]);
       }
-      _mm_storeu_ps(&result[i][j], result_row);
+      AFFECT(result[i][j],result_row);
     }
   }
 }

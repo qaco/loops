@@ -4,7 +4,7 @@ from expr import Cell,Var,Affect,FMA,FZero,FZeroInit
 
 class matmul(loop_nest):
     
-    def __init__(self,A,B,C,i,j,k):
+    def __init__(self,A,B,C,i,j,k,vectorize):
         
         dims = OrderedDict(i=i,j=j,k=k)
 
@@ -34,5 +34,6 @@ class matmul(loop_nest):
             dims=dims,
             shapes=shapes,
             prefix_payload=prefix_payload,
-            suffix_payload=suffix_payload
+            suffix_payload=suffix_payload,
+            vectorizable_dims=['j']
         )
