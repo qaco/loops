@@ -33,7 +33,6 @@ class Var(AbsExpr):
         self.name = name
     def replace(self,eold,enew):
         if eold == self:
-            assert(isinstance(enew,Var))
             self.name = enew.var
     def __eq__(self,other):
         return isinstance(other,Var) and self.name == other.name
@@ -42,6 +41,30 @@ class Var(AbsExpr):
     def to_c(self, vectorize):
         return self.name
 
+# class Call(AbsExpr):
+#     name: str
+#     args: list[AbsExpr]
+#     def __init__(self,name,args):
+#         self.name = name
+#         self.args = args
+#     def replace(self,eold,enew):
+#         for i,a in enumerate(self.args):
+#             if a == eold:
+#                 self.args[i] = enew
+#             else:
+#                 self.replace(eold,enew)
+#     def __eq__(self,other):
+#         return (
+#             isinstance(other,Call)
+#             and self.name == other.name
+#             and self.args == self.args
+#         )
+#     def __hash__(self):
+#         return hash((self.__class__,self.name,tuple(self.args)))
+#     def to_c(self,vectorize):
+#         c = ""
+#         c +=
+    
 class Decl(Var):
     ty: str
     def __init__(self,ty,name):
@@ -122,6 +145,8 @@ class BinOp(AbsExpr,ABC):
     @abstractmethod
     def root(self):
         pass
+    def to_c_vect(self,vectorize):
+        return None
     def __eq__(self,other):
         return (
             self.__class__ == other.__class__
@@ -131,31 +156,63 @@ class BinOp(AbsExpr,ABC):
     def __hash__(self):
         return hash((self.__class__,self.left,self.right))
     def to_c(self, vectorize):
-        o = self.root()
-        return (
-            self.left.to_c(vectorize=vectorize)
-            + f" {o} "
-            + self.right.to_c(vectorize=vectorize)
-        )
+        c = None
+        if vectorize:
+            c = self.to_c_vect(vectorize=vectorize)
+        if c == None:
+            o = self.root()
+            c = (
+                self.left.to_c(vectorize=vectorize)
+                + f" {o} "
+                + self.right.to_c(vectorize=vectorize)
+            )
+        return c
 
 class Add(BinOp):
     def root(self):
         return "+"
+    def to_c_vect(self,vectorize):
+        c = None
+        # if vectorize == 'sse':
+        #     c = "_mm_add_ps("
+        #     c += self.left.to_c(vectorize=vectorize)
+        #     c += ", " + self.right.to_c(vectorize=vectorize)
+        #     c += ");"
+        return c
 
 class Mul(BinOp):
     def root(self):
         return "*"
+    def to_c_vect(self,vectorize):
+        c = None
+        # if vectorize == 'sse':
+        #     c = "_mm_mul_ps("
+        #     c += self.left.to_c(vectorize=vectorize)
+        #     c += ", " + self.right.to_c(vectorize=vectorize)
+        #     c += ");"
+        return c
 
 class Affect(BinOp):
     def root(self):
         return "="
+    def to_c_vect(self,vectorize):
+        c = None
+        if vectorize == 'sse':
+            c = "_mm_storeu_ps(&"
+            c += self.left.to_c(vectorize=vectorize)
+            c += ", " + self.right.to_c(vectorize=vectorize)
+            c += ");"
+        return c
 
 class FZero(AbsExpr):
     dest: AbsExpr
     def __init__(self,dest):
         self.dest = dest
     def replace(self,eold,enew):
-        self.dest.replace(eold,enew)
+        if self.dest == eold:
+            self.dest = enew
+        else:
+            self.dest.replace(eold,enew)
     def __eq__(self,other):
         return(
             isinstance(other,FZero)
@@ -182,15 +239,19 @@ class FZero(AbsExpr):
 
 class FZeroInit(FZero):
     def to_c(self,vectorize):
-        if vectorize:
-            assert(False)
+        assert(isinstance(self.dest,Var))
+        c = ""
+        if vectorize == "sse":
+            c += "__m128 " + self.dest.to_c(vectorize=vectorize)
+            c += " = "
+            c += "_mm_setzero_ps();"
         else:
-            assert(isinstance(self.dest,Var))
             init = Expr(Affect(
                 left = Decl(ty="float",name=self.dest.name),
                 right = IntLiteral(lit=0)
             ))
-            return init.to_c(vectorize=vectorize)
+            c += init.to_c(vectorize=vectorize)
+        return c
         
 class FMA(AbsExpr):
     dest: AbsExpr
@@ -209,6 +270,10 @@ class FMA(AbsExpr):
         self.factor2 = factor2
         self.weight = weight
     def replace(self,eold,enew):
+        self.dest = enew if self.dest == eold else self.dest
+        self.factor1 = enew if self.factor1 == eold else self.factor1
+        self.factor2 = enew if self.factor2 == eold else self.factor2
+        self.weight = enew if self.weight == eold else self.weight
         for e in [self.dest,self.factor1,self.factor2,self.weight]:
             e.replace(eold,enew)
     def __eq__(self,other):
@@ -228,8 +293,23 @@ class FMA(AbsExpr):
             self.weight
         ))
     def to_c(self,vectorize):
-        if vectorize:
-            assert(False)
+        c = ""
+        if vectorize == "sse":
+            c += (
+                " __m128 a_row = _mm_loadu_ps(&"
+                + self.factor1.to_c(vectorize)
+                + ");")
+            c += (
+                " __m128 b_col = _mm_loadu_ps(&"
+                + self.factor2.to_c(vectorize)
+                + ");")
+            c += (
+                " "
+                + self.dest.to_c(vectorize)
+                + "= _mm_add_ps("
+                + self.weight.to_c(vectorize)
+                + ", _mm_mul_ps(a_row, b_col));"
+            )
         else:
             mul = Mul(left=self.factor1,right=self.factor2)
             add = Add(left=self.weight,right=mul)
@@ -237,6 +317,7 @@ class FMA(AbsExpr):
                 left = self.dest,
                 right = add
             ))
-            return e.to_c(vectorize=vectorize)
+            c += e.to_c(vectorize=vectorize)
+        return c
     
     

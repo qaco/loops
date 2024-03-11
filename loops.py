@@ -88,7 +88,8 @@ class loop_nest:
             suffix_payload = copy.deepcopy(self.suffix_payload),
             spec_dims = copy.copy(self.spec_dims),
             map_dims = copy.copy(self.map_dims),
-            perm = copy.copy(self.perm)
+            perm = copy.copy(self.perm),
+            vectorizable_dims = copy.copy(self.vectorizable_dims)
         )
 
     def is_tiled(self,dim):
@@ -207,13 +208,19 @@ class loop_nest:
             ident,
             ident_step
     ):
+
+        if self.vectorized_sse:
+            vectorize = 'sse'
+        else:
+            vectorize = None
+        
         c = ""
         d = self.perm[perm_index]
 
         k = list(self.dims.keys())[d]
         v = self.dims[k]
         c += ident*" " + f"for (int {k} = 0; "
-        if self.vectorized_sse:
+        if k in self.vectorized_sse:
             v1 = v//4
             c += f"{k} < {v1}; {k} += 4"
         else:
@@ -225,13 +232,21 @@ class loop_nest:
 
         for code,c_dims in self.prefix_payload.items():
             if c_dims.issubset(k_dims) and not code in ins:
-                c += (ident+ident_step)*" " + code.to_c(vectorize=None) + ";\n"
+                c += (
+                    (ident+ident_step)*" "
+                    + code.to_c(vectorize=vectorize)
+                    + ";\n"
+                )
                 ins.add(code)
 
         postfix = ""
         for code,c_dims in self.suffix_payload.items():
             if c_dims.issubset(k_dims) and not code in ins:
-                postfix += (ident+ident_step)*" " + code.to_c(vectorize=None) + ";\n"
+                postfix += (
+                    (ident+ident_step)*" "
+                    + code.to_c(vectorize=vectorize)
+                    + ";\n"
+                )
                 ins.add(code)
                 
         if perm_index+1 < len(self.perm):

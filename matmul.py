@@ -16,6 +16,8 @@ mlflops = int(((512*512*512*flops_per_iteration)/mlcy)*100)/100
 
 def perform_measure(nl):
 
+    nl.vectorize_sse()
+    
     measure = s.get_measure(nl)
 
     cy = measure.num_cycles
