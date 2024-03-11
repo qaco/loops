@@ -183,9 +183,9 @@ def evaluate(loop):
                 sse = True
                 break
         
-        # os.remove(c_path)
+        os.remove(c_path)
         os.remove(asm_path)
-        # os.remove(bin_path)
+        os.remove(bin_path)
         
         assert(cmisses < crefs)
         exp = Exp(

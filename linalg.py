@@ -4,7 +4,7 @@ from expr import Cell,Var,Affect,FMA,FZero,FZeroInit
 
 class matmul(loop_nest):
     
-    def __init__(self,A,B,C,i,j,k,vectorize):
+    def __init__(self,A,B,C,i,j,k):
         
         dims = OrderedDict(i=i,j=j,k=k)
 
@@ -18,7 +18,7 @@ class matmul(loop_nest):
         aik = Cell(array=Var(A),dims=[Var("i"),Var("k")])
         bkj = Cell(array=Var(B),dims=[Var("k"),Var("j")])
         tmpvar = Var("sum")
-        init = FZeroInit(dest=tmpvar)
+        init = FZeroInit(expr=tmpvar)
         e = FMA(dest=tmpvar,factor1=aik,factor2=bkj,weight=tmpvar)
         load = Affect(left=cij,right=tmpvar)
 
@@ -35,5 +35,5 @@ class matmul(loop_nest):
             shapes=shapes,
             prefix_payload=prefix_payload,
             suffix_payload=suffix_payload,
-            vectorizable_dims=['j']
+            vectorizable_dims=['j','k']
         )

@@ -100,14 +100,17 @@ class loop_nest:
         if not self.vectorizable_dims:
             return
 
-        dim,ind = None,None
+        axis = []
         for d in self.vectorizable_dims:
-            i = self.dims[d]
-            if i%4 == 0 and (ind == None or i < ind):
-                dim,ind=d,i
+            dim,ind = None,None
+            for sd in self.map_dims[d]:
+                i = self.dims[sd]
+                if i%4 == 0 and (ind == None or i < ind):
+                    dim,ind=sd,i
+            if dim:
+                axis.append(dim)
 
-        if dim:
-            self.vectorized_sse = dim
+        self.vectorized_sse = axis
     
     def tile_dimension(self,dim,tile_size):
 
@@ -142,9 +145,9 @@ class loop_nest:
             eold = Var(name=dim)
             enew = Add(left=Var(nindex0),right=Var(nindex1))
             # Update the vectorizable list
-            if dim in self.vectorizable_dims:
-                self.vectorizable_dims.remove(dim)
-                self.vectorizable_dims += [nindex0,nindex1]
+            # if dim in self.vectorizable_dims:
+            #     self.vectorizable_dims.remove(dim)
+            #     self.vectorizable_dims += [nindex0,nindex1]
             
             nprefix_payload = {}
             for code,dims in self.prefix_payload.items():
@@ -221,9 +224,12 @@ class loop_nest:
         v = self.dims[k]
         c += ident*" " + f"for (int {k} = 0; "
         if k in self.vectorized_sse:
-            v1 = v//4
-            c += f"{k} < {v1}; {k} += 4"
+            # print(f"{k} in " + str(self.vectorized_sse))
+            # v1 = v//4
+            # c += f"{k} < {v1}; {k} += 4"
+            c += f"{k} < {v}; {k} += 4"
         else:
+            # print(f"{k} not in " + str(self.vectorized_sse))
             c += f"{k} < {v}; {k}++"
         c += "){\n"
 
