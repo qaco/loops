@@ -224,12 +224,8 @@ class loop_nest:
         v = self.dims[k]
         c += ident*" " + f"for (int {k} = 0; "
         if k in self.vectorized_sse:
-            # print(f"{k} in " + str(self.vectorized_sse))
-            # v1 = v//4
-            # c += f"{k} < {v1}; {k} += 4"
             c += f"{k} < {v}; {k} += 4"
         else:
-            # print(f"{k} not in " + str(self.vectorized_sse))
             c += f"{k} < {v}; {k}++"
         c += "){\n"
 

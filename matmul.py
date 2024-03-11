@@ -6,7 +6,6 @@ from linalg import matmul
 flops_per_iteration = 2 # because SSE does not have FMA
 random_picks = 10
 mutations = 10
-initialize_C=True
 
 b = LoopBuilder()
 s = Space()
